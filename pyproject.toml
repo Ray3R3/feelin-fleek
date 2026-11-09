@@ -1,0 +1,14 @@
+[project]
+name = "fleek-market"
+version = "0.1.0"
+description = "Buyer and seller agents negotiating bulk secondhand lots"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+voice = ["anthropic"]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
