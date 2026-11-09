@@ -1,16 +1,19 @@
-"""Demo runner: build the synthetic market, shortlist, negotiate, summarise.
+"""Demo runner: build the market, shortlist, negotiate, then print one
+transcript, the checkout, and a market summary.
 
 This is the simulator, so it is the one place that holds every secret. It hands
 each max to one Ralph and each floor to one Tommy, and nothing else sees them.
 """
 from __future__ import annotations
 
+import argparse
 from collections import Counter
+from dataclasses import dataclass, replace
 
 from .agents.ralph import Outcome, Ralph, report
 from .agents.tommy import Tommy
 from .core.config import CONFIG, Config
-from .core.models import Deal
+from .core.models import Deal, Kind, Lot, Side
 from .data.generate import Market, generate
 from .matching.match import shortlist
 from .negotiation.protocol import Status, negotiate
@@ -45,48 +48,141 @@ def run_market(market: Market, cfg: Config = CONFIG) -> list[Outcome]:
     return outcomes
 
 
-def main() -> None:
-    market = generate(CONFIG)
+@dataclass(frozen=True)
+class Summary:
+    buyers: int
+    closed: int
+    closed_by_segment: dict[str, tuple[int, int]]  # segment -> (closed, buyers)
+    negotiations: dict[str, int]  # deal / walk / timeout
+    price_vs_list: float  # average deal price as a share of list
+    gmv: float
+    fleek_take: float
+    buyer_surplus: float  # sum of (max - price) * qty
+    seller_surplus: float  # sum of (price - floor) * qty
+
+
+def summarise(market: Market, outcomes: list[Outcome], cfg: Config = CONFIG) -> Summary:
+    """Market-level numbers. Surplus needs the private limits, so only the
+    simulator can compute it; no agent or Fleek service ever could."""
+    lots = {lot.lot_id: lot for lot in market.lots}
+    deals = [o.deal for o in outcomes if o.deal]
+    by_segment: dict[str, list[int]] = {}
+    for o in outcomes:
+        tally = by_segment.setdefault(o.want.segment.value, [0, 0])
+        tally[0] += o.deal is not None
+        tally[1] += 1
+    statuses = Counter(r.status.value for o in outcomes for _, r in o.attempts)
+    gmv = sum(d.offer.total for d in deals)
+    return Summary(
+        buyers=len(outcomes),
+        closed=len(deals),
+        closed_by_segment={k: (v[0], v[1]) for k, v in by_segment.items()},
+        negotiations={s.value: statuses.get(s.value, 0) for s in Status},
+        price_vs_list=(sum(d.offer.price / lots[d.lot_id].list_price for d in deals) / len(deals)
+                       if deals else 0.0),
+        gmv=round(gmv, 2),
+        fleek_take=round(gmv * cfg.commission_rate, 2),
+        buyer_surplus=round(sum((market.maxes[d.buyer_id].max_price - d.offer.price)
+                                * d.offer.quantity for d in deals), 2),
+        seller_surplus=round(sum((d.offer.price - market.floors[d.lot_id].floor_price)
+                                 * d.offer.quantity for d in deals), 2),
+    )
+
+
+def print_transcript(outcome: Outcome, lot: Lot) -> None:
+    d, w = outcome.deal, outcome.want
+    print(f"\nOne negotiation: {d.buyer_id} ({w.segment.value}) and {d.seller_id}, "
+          f"{d.offer.quantity} {lot.category} grade {lot.grade.value}, "
+          f"list £{lot.list_price:.2f}/pc")
+    for m in d.transcript:
+        who = "Ralph" if m.sender is Side.BUYER else "Tommy"
+        if m.kind is Kind.OFFER:
+            line = f"offers £{m.offer.price:.2f}/pc"
+        elif m.kind is Kind.ACCEPT:
+            line = f"accepts £{d.offer.price:.2f}/pc"
+        else:
+            line = "walks away"
+        said = f'  "{m.text}"' if m.text else ""
+        print(f"  R{m.round}  {who:<5}  {line}{said}")
+
+
+def print_checkout(deals: list[Deal], lots: dict[str, Lot], limit: int | None) -> None:
+    print(f"\nCheckout ({len(deals)} orders)")
+    for d in deals[:limit]:
+        lot = lots[d.lot_id]
+        price, total = f"£{d.offer.price:.2f}", f"£{d.offer.total:,.2f}"
+        print(f"  {d.buyer_id}  {lot.category:<10} grade {lot.grade.value}  "
+              f"{d.offer.quantity:>3} pcs  @ {price:>6}/pc  = {total:>10}   "
+              f"supplier {d.seller_id} (lot {d.lot_id})")
+    if limit is not None and len(deals) > limit:
+        print(f"  ... and {len(deals) - limit} more (--all to list them)")
+
+
+def print_misses(misses: list[Outcome], limit: int | None) -> None:
+    print(f"\nNo deal ({len(misses)} buyers)")
+    for o in misses[:limit]:
+        print(f"  {o.want.buyer_id}: {report(o)}")
+    if limit is not None and len(misses) > limit:
+        print(f"  ... and {len(misses) - limit} more")
+
+
+def print_summary(s: Summary, cfg: Config) -> None:
+    seg = ", ".join(f"{k} {c}/{n}" for k, (c, n) in s.closed_by_segment.items())
+    total = s.buyer_surplus + s.seller_surplus
+    n = s.negotiations
+    print("\nSummary")
+    print(f"  buyers who closed      {s.closed}/{s.buyers} ({seg})")
+    print(f"  negotiations           {sum(n.values())}: {n['deal']} deals, "
+          f"{n['walk']} walk-aways, {n['timeout']} timeouts")
+    print(f"  avg price vs list      {s.price_vs_list:.0%}")
+    print(f"  GMV                    £{s.gmv:,.2f}")
+    print(f"  Fleek take at {cfg.commission_rate:.0%}      £{s.fleek_take:,.2f}")
+    if total > 0:
+        print(f"  surplus split          buyers £{s.buyer_surplus:,.2f} "
+              f"({s.buyer_surplus / total:.0%}), sellers £{s.seller_surplus:,.2f} "
+              f"({s.seller_surplus / total:.0%})")
+        print("                         (simulator view: needs the private limits)")
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    args.add_argument("--seed", type=int, help="market seed (default from config)")
+    args.add_argument("--all", action="store_true", help="list every order and miss")
+    opts = args.parse_args(argv)
+    cfg = CONFIG if opts.seed is None else replace(CONFIG, seed=opts.seed)
+    limit = None if opts.all else 10
+
+    market = generate(cfg)
     segments = Counter(w.segment.value for w in market.wants)
     grades = Counter(lot.grade.value for lot in market.lots)
-    print(f"Market (seed {CONFIG.seed})")
+    print(f"Market (seed {cfg.seed})")
     print(f"  sellers {len(market.seller_ids)}, lots {len(market.lots)}, "
           f"grades {dict(sorted(grades.items()))}")
     print(f"  buyers  {len(market.wants)}, segments {dict(segments.most_common())}")
 
     # matching sees public data only
-    lists = shortlist(market.wants, market.lots, CONFIG)
+    lists = shortlist(market.wants, market.lots, cfg)
     pairs = [m for ms in lists.values() for m in ms]
-    matched = sum(1 for ms in lists.values() if ms)
     all_pairs = len(market.wants) * len(market.lots)
-    print(f"\nMatching (top {CONFIG.shortlist_k} sellers per buyer)")
-    print(f"  {len(pairs)} pairs to negotiate, out of {all_pairs} possible "
-          f"({len(pairs) / all_pairs:.1%})")
-    print(f"  buyers with at least one match: {matched}/{len(market.wants)}")
-
-    # simulator-only diagnostic: the simulator holds every secret, matching does not
     viable = sum(1 for m in pairs
                  if market.maxes[m.buyer_id].max_price >= market.floors[m.lot.lot_id].floor_price)
-    if pairs:
+    print(f"\nMatching (top {cfg.shortlist_k} sellers per buyer)")
+    print(f"  {len(pairs)} pairs to negotiate, out of {all_pairs} possible "
+          f"({len(pairs) / all_pairs:.1%})")
+    if pairs:  # simulator-only: needs both secrets
         print(f"  pairs where a deal is possible (max >= floor): {viable}/{len(pairs)} "
               f"({viable / len(pairs):.0%})")
 
-    example = next(w for w in market.wants if lists[w.buyer_id])
-    grades_wanted = "/".join(sorted(g.value for g in example.grades))
-    print(f"\n  e.g. {example.buyer_id} ({example.segment.value}) wants {example.quantity} "
-          f"{example.category}, grade {grades_wanted}")
-    for m in lists[example.buyer_id]:
-        print(f"    {m.lot.lot_id:<8} grade {m.lot.grade.value}  {m.quantity:>3} pcs  "
-              f"sticker £{m.lot.sticker_price(m.quantity):.2f}  score {m.score:.2f}")
-
-    outcomes = run_market(market, CONFIG)
-    deals = [o for o in outcomes if o.deal]
-    negotiations = sum(len(o.attempts) for o in outcomes)
-    print("\nNegotiation")
-    print(f"  {negotiations} negotiations, {len(deals)} buyers closed a deal, "
-          f"{len(outcomes) - len(deals)} didn't")
-    for o in outcomes[:3]:
-        print(f"  {o.want.buyer_id}: {report(o)}")
+    outcomes = run_market(market, cfg)
+    lots = {lot.lot_id: lot for lot in market.lots}
+    closed = [o for o in outcomes if o.deal]
+    if closed:
+        # the longest haggle makes the most readable example
+        longest = max(closed, key=lambda o: o.deal.rounds)
+        print_transcript(longest, lots[longest.deal.lot_id])
+    print_checkout([o.deal for o in closed], lots, limit)
+    print_misses([o for o in outcomes if not o.deal], limit and 5)
+    print_summary(summarise(market, outcomes, cfg), cfg)
 
 
 if __name__ == "__main__":

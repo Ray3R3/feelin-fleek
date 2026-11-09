@@ -75,5 +75,8 @@ class Config:
     # from a final offer
     limit_margin: tuple[float, float] = (0.02, 0.06)
 
+    # --- marketplace
+    commission_rate: float = 0.15  # Fleek's take on GMV
+
 
 CONFIG = Config()
