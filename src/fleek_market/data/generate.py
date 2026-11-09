@@ -49,7 +49,11 @@ def _make_lots(rng: random.Random, cfg: Config) -> tuple[list[Lot], dict[str, Se
                 tiers=tiers,
             )
             lots.append(lot)
-            floors[lot.lot_id] = SellerLimits(_tick(list_price * rng.uniform(*cfg.floor_vs_list), cfg))
+            # A seller won't publish a bulk discount they won't honour, so the
+            # floor never sits above the deepest-tier price.
+            deepest = lot.sticker_price(max(t.min_pieces for t in tiers)) if tiers else list_price
+            floor = min(_tick(list_price * rng.uniform(*cfg.floor_vs_list), cfg), deepest)
+            floors[lot.lot_id] = SellerLimits(floor)
     return lots, floors
 
 

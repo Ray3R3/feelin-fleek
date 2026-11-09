@@ -27,3 +27,11 @@ def test_floor_sits_below_list_price():
 def test_buyer_settings_dont_reshuffle_sellers():
     m = generate()
     assert generate(replace(CONFIG, n_buyers=10)).lots == m.lots
+
+
+def test_floor_never_above_deepest_tier_price():
+    for seed in range(10):
+        m = generate(seed=seed)
+        for lot in m.lots:
+            deepest = lot.sticker_price(max(t.min_pieces for t in lot.tiers))
+            assert m.floors[lot.lot_id].floor_price <= deepest

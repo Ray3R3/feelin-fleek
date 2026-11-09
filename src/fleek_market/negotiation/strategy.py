@@ -68,8 +68,8 @@ def seller_plan(lot: Lot, quantity: int, limits: SellerLimits, cfg: Config = CON
     opening = lot.sticker_price(quantity) * (1 + cfg.seller_opening_markup)
     return Plan(
         side=Side.SELLER,
-        # A deep tier discount can put the sticker under the floor. Then he
-        # opens at his target and just doesn't move. Stubborn, but legal.
+        # The floor never exceeds the deepest-tier sticker, but floor + margin
+        # can. Then he opens at his target and just doesn't move. Stubborn, but legal.
         opening=max(opening, target),
         target=target,
         deadline=min(cfg.seller_patience, cfg.max_rounds),

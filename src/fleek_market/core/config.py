@@ -43,7 +43,7 @@ class Config:
     # --- seller pricing: published bulk tiers (min pieces, discount)
     tiers: tuple[tuple[int, float], ...] = ((100, 0.05), (250, 0.10), (500, 0.15))
     # private floor as a fraction of list price
-    floor_vs_list: tuple[float, float] = (0.75, 0.90)
+    floor_vs_list: tuple[float, float] = (0.75, 0.85)
     seller_opening_markup: float = 0.0  # Tommy anchors at sticker + this
     seller_patience: int = 6
     seller_concession_curve: float = 1.5
