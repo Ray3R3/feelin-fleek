@@ -23,7 +23,8 @@ class Ralph:
                  cfg: Config = CONFIG):
         self.want, self.lot, self.quantity = want, lot, quantity
         self._limits = limits
-        rng = random.Random(f"{cfg.seed}-ralph-{want.buyer_id}-{lot.lot_id}")  # private to this agent
+        # seeded so demo runs are reproducible
+        rng = random.Random(f"{cfg.seed}-ralph-{want.buyer_id}-{lot.lot_id}")
         self._plan = buyer_plan(lot, quantity, cfg.segments[want.segment], limits, rng, cfg)
 
     def move(self, rnd: int, last: Message | None) -> Message:

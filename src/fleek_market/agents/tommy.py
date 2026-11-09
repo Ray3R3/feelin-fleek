@@ -21,7 +21,8 @@ class Tommy:
                  buyer_id: str, cfg: Config = CONFIG):
         self.lot, self.quantity = lot, quantity
         self._limits = limits
-        rng = random.Random(f"{cfg.seed}-tommy-{lot.lot_id}-{buyer_id}")  # private to this agent
+        # seeded so demo runs are reproducible
+        rng = random.Random(f"{cfg.seed}-tommy-{lot.lot_id}-{buyer_id}")
         self._plan = seller_plan(lot, quantity, limits, rng, cfg)
 
     def move(self, rnd: int, last: Message | None) -> Message:
