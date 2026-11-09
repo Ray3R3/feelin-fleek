@@ -1,11 +1,48 @@
-"""Demo runner: build the synthetic market, shortlist, and summarise."""
+"""Demo runner: build the synthetic market, shortlist, negotiate, summarise.
+
+This is the simulator, so it is the one place that holds every secret. It hands
+each max to one Ralph and each floor to one Tommy, and nothing else sees them.
+"""
 from __future__ import annotations
 
 from collections import Counter
 
-from .core.config import CONFIG
-from .data.generate import generate
+from .agents.ralph import Outcome, Ralph, report
+from .agents.tommy import Tommy
+from .core.config import CONFIG, Config
+from .core.models import Deal
+from .data.generate import Market, generate
 from .matching.match import shortlist
+from .negotiation.protocol import Status, negotiate
+
+
+def run_market(market: Market, cfg: Config = CONFIG) -> list[Outcome]:
+    """Each buyer's Ralph works down its shortlist until a deal closes.
+
+    Buyers go in turn and stock is shared, so an early buyer can take pieces a
+    later one wanted. A real marketplace would run these concurrently; first
+    come, first served keeps the demo deterministic.
+    """
+    lists = shortlist(market.wants, market.lots, cfg)
+    stock = {lot.lot_id: lot.pieces for lot in market.lots}
+    outcomes = []
+    for want in market.wants:
+        attempts, deal = [], None
+        for m in lists[want.buyer_id]:
+            qty = min(want.quantity, stock[m.lot.lot_id])
+            if qty < want.min_quantity:
+                continue  # someone earlier bought most of it
+            ralph = Ralph(want, m.lot, qty, market.maxes[want.buyer_id], cfg)
+            tommy = Tommy(m.lot, qty, market.floors[m.lot.lot_id], want.buyer_id, cfg)
+            result = negotiate(ralph, tommy, cfg.max_rounds)
+            attempts.append((m.lot, result))
+            if result.status is Status.DEAL:
+                stock[m.lot.lot_id] -= result.agreed.quantity
+                deal = Deal(want.buyer_id, m.lot.seller_id, m.lot.lot_id,
+                            result.agreed, result.rounds, result.transcript)
+                break
+        outcomes.append(Outcome(want, deal, tuple(attempts)))
+    return outcomes
 
 
 def main() -> None:
@@ -41,6 +78,15 @@ def main() -> None:
     for m in lists[example.buyer_id]:
         print(f"    {m.lot.lot_id:<8} grade {m.lot.grade.value}  {m.quantity:>3} pcs  "
               f"sticker £{m.lot.sticker_price(m.quantity):.2f}  score {m.score:.2f}")
+
+    outcomes = run_market(market, CONFIG)
+    deals = [o for o in outcomes if o.deal]
+    negotiations = sum(len(o.attempts) for o in outcomes)
+    print("\nNegotiation")
+    print(f"  {negotiations} negotiations, {len(deals)} buyers closed a deal, "
+          f"{len(outcomes) - len(deals)} didn't")
+    for o in outcomes[:3]:
+        print(f"  {o.want.buyer_id}: {report(o)}")
 
 
 if __name__ == "__main__":

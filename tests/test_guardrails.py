@@ -6,6 +6,7 @@ Once negotiation exists, this file also checks every closed deal.
 """
 import random
 
+from fleek_market.cli import run_market
 from fleek_market.core.models import Kind, Message, Offer, Side
 from fleek_market.core.private import BuyerLimits, SellerLimits
 from fleek_market.data.generate import generate
@@ -93,3 +94,17 @@ def test_property_no_outgoing_message_crosses_a_limit():
                     assert on_table is not None and price_ok(lim, on_table.price)
                 checked += 1
     assert checked > 50_000
+
+
+def test_property_every_closed_deal_sits_inside_both_limits():
+    deals = 0
+    for seed in range(30):
+        m = generate(seed=seed)
+        for o in run_market(m):
+            if o.deal is None:
+                continue
+            price = o.deal.offer.price
+            assert price <= m.maxes[o.deal.buyer_id].max_price
+            assert price >= m.floors[o.deal.lot_id].floor_price
+            deals += 1
+    assert deals > 500  # enough deals that this actually tested something

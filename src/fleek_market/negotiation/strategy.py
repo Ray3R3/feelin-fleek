@@ -18,7 +18,7 @@ import random
 from dataclasses import dataclass, field
 
 from ..core.config import CONFIG, Config, SegmentProfile
-from ..core.models import Lot, Side
+from ..core.models import Kind, Lot, Message, Offer, Side
 from ..core.private import BuyerLimits, SellerLimits
 
 
@@ -48,6 +48,14 @@ class Plan:
 
     def should_walk(self, rnd: int) -> bool:
         return rnd > self.deadline
+
+    def next_move(self, rnd: int, on_table: Offer | None, quantity: int) -> Message:
+        """Walk if out of time, accept if their offer is good enough, else counter."""
+        if self.should_walk(rnd):
+            return Message(rnd, self.side, Kind.WALK)
+        if on_table is not None and self.should_accept(on_table.price, rnd):
+            return Message(rnd, self.side, Kind.ACCEPT, on_table)
+        return Message(rnd, self.side, Kind.OFFER, Offer(self.price_at(rnd), quantity))
 
 
 def draw_margin(rng: random.Random, cfg: Config = CONFIG) -> float:
