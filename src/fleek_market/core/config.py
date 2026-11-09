@@ -70,6 +70,9 @@ class Config:
     # --- negotiation
     max_rounds: int = 6  # hard cap regardless of patience
     price_tick: float = 0.01  # prices rounded to the penny
+    # agents stop conceding this far short of their limit, so a final offer
+    # never lands exactly on the secret number
+    limit_margin: float = 0.03
 
 
 CONFIG = Config()
