@@ -1,7 +1,8 @@
 """How an agent haggles: where it opens, how fast it concedes, when it accepts.
 
 Each agent makes a `Plan` once, at the start of a negotiation, from public
-listing data plus its own private limit. After that every move is a lookup:
+listing data, its own private limit and its own private RNG. After that every
+move is a lookup:
 
     price at round t = opening + (target - opening) * progress ** curve
 
@@ -13,6 +14,7 @@ Strategy proposes; guardrails.py still checks every message on the way out.
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import dataclass, field
 
 from ..core.config import CONFIG, Config, SegmentProfile
@@ -48,10 +50,15 @@ class Plan:
         return rnd > self.deadline
 
 
-def buyer_plan(lot: Lot, quantity: int, profile: SegmentProfile,
-               limits: BuyerLimits, cfg: Config = CONFIG) -> Plan:
+def draw_margin(rng: random.Random, cfg: Config = CONFIG) -> float:
+    """How far short of its limit this agent stops. Drawn per agent, never sent."""
+    return rng.uniform(*cfg.limit_margin)
+
+
+def buyer_plan(lot: Lot, quantity: int, profile: SegmentProfile, limits: BuyerLimits,
+               rng: random.Random, cfg: Config = CONFIG) -> Plan:
     """Ralph opens a segment-specific discount below the sticker price."""
-    target = limits.max_price * (1 - cfg.limit_margin)
+    target = limits.max_price * (1 - draw_margin(rng, cfg))
     opening = lot.sticker_price(quantity) * (1 - profile.opening_discount)
     return Plan(
         side=Side.BUYER,
@@ -62,9 +69,10 @@ def buyer_plan(lot: Lot, quantity: int, profile: SegmentProfile,
     )
 
 
-def seller_plan(lot: Lot, quantity: int, limits: SellerLimits, cfg: Config = CONFIG) -> Plan:
+def seller_plan(lot: Lot, quantity: int, limits: SellerLimits,
+                rng: random.Random, cfg: Config = CONFIG) -> Plan:
     """Tommy anchors at his own published price for this quantity."""
-    target = limits.floor_price * (1 + cfg.limit_margin)
+    target = limits.floor_price * (1 + draw_margin(rng, cfg))
     opening = lot.sticker_price(quantity) * (1 + cfg.seller_opening_markup)
     return Plan(
         side=Side.SELLER,

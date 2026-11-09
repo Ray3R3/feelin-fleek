@@ -1,3 +1,4 @@
+import random
 from dataclasses import replace
 
 from fleek_market.core.config import CONFIG
@@ -5,7 +6,20 @@ from fleek_market.core.models import Grade, Lot, Segment, Side, Tier
 from fleek_market.core.private import BuyerLimits, SellerLimits
 from fleek_market.data.generate import generate
 from fleek_market.matching.match import shortlist
-from fleek_market.negotiation.strategy import buyer_plan, seller_plan
+from fleek_market.negotiation import strategy
+
+
+def rng(seed=0):
+    return random.Random(seed)
+
+
+def buyer_plan(*args, **kw):
+    return strategy.buyer_plan(*args, rng=kw.pop("rng", rng()), **kw)
+
+
+def seller_plan(*args, **kw):
+    return strategy.seller_plan(*args, rng=kw.pop("rng", rng()), **kw)
+
 
 LOT = Lot("S1-L1", "S1", "denim", Grade.B, 500, 10.00,
           (Tier(100, 0.05), Tier(250, 0.10), Tier(500, 0.15)))
@@ -71,5 +85,21 @@ def test_no_planned_price_ever_equals_or_crosses_a_limit():
 
 def test_plan_repr_hides_the_target():
     plan = buyer_plan(LOT, 100, HOBBY, BuyerLimits(9.00))
-    assert str(round(9.00 * (1 - CONFIG.limit_margin), 2)) not in repr(plan)
+    assert "target" not in repr(plan) and str(plan.target) not in repr(plan)
     assert plan.side is Side.BUYER
+
+
+def test_margin_is_private_per_agent_and_seeded():
+    a = buyer_plan(LOT, 100, HOBBY, BuyerLimits(9.00), rng=rng(1))
+    b = buyer_plan(LOT, 100, HOBBY, BuyerLimits(9.00), rng=rng(2))
+    assert a.target != b.target  # same limit, different margins
+    assert a == buyer_plan(LOT, 100, HOBBY, BuyerLimits(9.00), rng=rng(1))
+    lo, hi = CONFIG.limit_margin
+    assert 9.00 * (1 - hi) <= a.target <= 9.00 * (1 - lo)
+
+
+def test_final_offer_doesnt_reveal_the_limit_by_a_fixed_ratio():
+    # with a fixed margin, final_offer / (1 - margin) would be the same for everyone
+    ratios = {round(buyer_plan(LOT, 100, HOBBY, BuyerLimits(9.00), rng=rng(s)).target / 9.00, 3)
+              for s in range(50)}
+    assert len(ratios) > 10

@@ -70,9 +70,10 @@ class Config:
     # --- negotiation
     max_rounds: int = 6  # hard cap regardless of patience
     price_tick: float = 0.01  # prices rounded to the penny
-    # agents stop conceding this far short of their limit, so a final offer
-    # never lands exactly on the secret number
-    limit_margin: float = 0.03
+    # agents stop conceding this far short of their limit. Each agent draws its
+    # own margin privately; a fixed one would let anyone back out the limit
+    # from a final offer
+    limit_margin: tuple[float, float] = (0.02, 0.06)
 
 
 CONFIG = Config()
