@@ -14,7 +14,7 @@ def lot(lot_id, seller, category="denim", grade=Grade.B, pieces=250, price=5.0):
 
 
 def want(grades=(Grade.B,), quantity=200, min_quantity=100):
-    return Want("B1", Segment.LEARNER, "denim", frozenset(grades), quantity, min_quantity)
+    return Want("B1", Segment.HOBBYIST, "denim", frozenset(grades), quantity, min_quantity)
 
 
 def test_filters_category_grade_and_minimum_size():

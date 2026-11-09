@@ -19,9 +19,9 @@ GRADE_ORDER = (Grade.A, Grade.B, Grade.C)  # best first
 
 
 class Segment(str, Enum):
-    HOBBYIST = "hobbyist"
-    LEARNER = "learner"
-    PRO = "pro"
+    """Fleek's buyer bands by monthly spend. Learners (<£200/mo) are out of scope."""
+    HOBBYIST = "hobbyist"  # £200-2K/mo
+    PRO = "pro"  # £2K+/mo
 
 
 @dataclass(frozen=True)

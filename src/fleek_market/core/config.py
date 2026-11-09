@@ -51,13 +51,12 @@ class Config:
     # --- buyer segments
     segment_mix: dict[Segment, float] = field(
         default_factory=lambda: {
-            Segment.HOBBYIST: 0.55, Segment.LEARNER: 0.30, Segment.PRO: 0.15,
+            Segment.HOBBYIST: 0.70, Segment.PRO: 0.30,
         }
     )
     segments: dict[Segment, SegmentProfile] = field(
         default_factory=lambda: {
             Segment.HOBBYIST: SegmentProfile((50, 100), (0.85, 1.05), 0.15, 4, 0.8),
-            Segment.LEARNER: SegmentProfile((100, 250), (0.80, 1.00), 0.20, 5, 1.0),
             Segment.PRO: SegmentProfile((250, 500), (0.72, 0.92), 0.25, 6, 1.6),
         }
     )
