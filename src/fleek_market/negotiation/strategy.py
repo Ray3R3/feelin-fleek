@@ -35,7 +35,7 @@ class Plan:
         """What this agent offers in round `rnd` (1-based)."""
         progress = 1.0 if self.deadline <= 1 else min(1.0, (rnd - 1) / (self.deadline - 1))
         raw = self.opening + (self.target - self.opening) * progress ** self.curve
-        # Note to self: rounding the wrong way lets a penny slip past the limit.
+        # Rounding the wrong way lets a penny slip past the limit.
         # Buyers round down, sellers round up, always.
         steps = raw / tick
         steps = math.floor(steps + 1e-9) if self.side is Side.BUYER else math.ceil(steps - 1e-9)
