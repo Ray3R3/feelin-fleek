@@ -43,7 +43,7 @@ class Config:
     # --- seller pricing: published bulk tiers (min pieces, discount)
     tiers: tuple[tuple[int, float], ...] = ((100, 0.05), (250, 0.10), (500, 0.15))
     # private floor as a fraction of list price
-    floor_vs_list: tuple[float, float] = (0.70, 0.85)
+    floor_vs_list: tuple[float, float] = (0.75, 0.90)
     seller_opening_markup: float = 0.0  # Tommy anchors at sticker + this
     seller_patience: int = 6
     seller_concession_curve: float = 1.5
@@ -56,8 +56,8 @@ class Config:
     )
     segments: dict[Segment, SegmentProfile] = field(
         default_factory=lambda: {
-            Segment.HOBBYIST: SegmentProfile((50, 100), (0.85, 1.05), 0.15, 4, 0.8),
-            Segment.PRO: SegmentProfile((250, 500), (0.72, 0.92), 0.25, 6, 1.6),
+            Segment.HOBBYIST: SegmentProfile((50, 100), (0.70, 0.95), 0.15, 4, 0.8),
+            Segment.PRO: SegmentProfile((250, 500), (0.62, 0.85), 0.25, 6, 1.6),
         }
     )
 
