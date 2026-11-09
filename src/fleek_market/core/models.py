@@ -15,6 +15,9 @@ class Grade(str, Enum):
     C = "C"  # visible wear, repair/upcycle stock
 
 
+GRADE_ORDER = (Grade.A, Grade.B, Grade.C)  # best first
+
+
 class Segment(str, Enum):
     HOBBYIST = "hobbyist"
     LEARNER = "learner"

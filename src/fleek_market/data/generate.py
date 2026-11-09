@@ -10,10 +10,8 @@ import random
 from dataclasses import dataclass
 
 from ..core.config import CONFIG, Config
-from ..core.models import Grade, Lot, Segment, Tier, Want
+from ..core.models import GRADE_ORDER, Grade, Lot, Segment, Tier, Want
 from ..core.private import BuyerLimits, SellerLimits
-
-GRADE_ORDER = (Grade.A, Grade.B, Grade.C)  # best first
 
 
 @dataclass
