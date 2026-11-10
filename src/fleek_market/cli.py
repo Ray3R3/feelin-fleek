@@ -10,7 +10,7 @@ import argparse
 from collections import Counter
 from dataclasses import dataclass, replace
 
-from .agents.ralph import Outcome, Ralph, report
+from .agents.ralph import Outcome, Ralph, debrief, report
 from .agents.tommy import Tommy
 from .core.config import CONFIG, Config
 from .core.models import Deal, Kind, Lot, Side
@@ -44,7 +44,7 @@ def run_market(market: Market, cfg: Config = CONFIG) -> list[Outcome]:
                 deal = Deal(want.buyer_id, m.lot.seller_id, m.lot.lot_id,
                             result.agreed, result.rounds, result.transcript)
                 break
-        outcomes.append(Outcome(want, deal, tuple(attempts)))
+        outcomes.append(debrief(want, deal, attempts, market.maxes[want.buyer_id], cfg))
     return outcomes
 
 
@@ -54,6 +54,7 @@ class Summary:
     closed: int
     closed_by_segment: dict[str, tuple[int, int]]  # segment -> (closed, buyers)
     negotiations: dict[str, int]  # deal / walk / timeout
+    near_misses: int  # no deal, but close enough to be worth an intro
     price_vs_list: float  # average deal price as a share of list
     gmv: float
     fleek_take: float
@@ -78,6 +79,7 @@ def summarise(market: Market, outcomes: list[Outcome], cfg: Config = CONFIG) -> 
         closed=len(deals),
         closed_by_segment={k: (v[0], v[1]) for k, v in by_segment.items()},
         negotiations={s.value: statuses.get(s.value, 0) for s in Status},
+        near_misses=sum(o.near_miss for o in outcomes),
         price_vs_list=(sum(d.offer.price / lots[d.lot_id].list_price for d in deals) / len(deals)
                        if deals else 0.0),
         gmv=round(gmv, 2),
@@ -134,6 +136,7 @@ def print_summary(s: Summary, cfg: Config) -> None:
     print(f"  buyers who closed      {s.closed}/{s.buyers} ({seg})")
     print(f"  negotiations           {sum(n.values())}: {n['deal']} deals, "
           f"{n['walk']} walk-aways, {n['timeout']} timeouts")
+    print(f"  near misses            {s.near_misses} buyers flagged for an account-manager intro")
     print(f"  avg price vs list      {s.price_vs_list:.0%}")
     print(f"  GMV                    £{s.gmv:,.2f}")
     print(f"  Fleek take at {cfg.commission_rate:.0%}      £{s.fleek_take:,.2f}")

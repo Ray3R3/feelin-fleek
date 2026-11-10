@@ -1,11 +1,11 @@
 from fleek_market.core.config import CONFIG
-from fleek_market.core.models import Grade, Kind, Lot, Segment, Side, Tier, Want
+from fleek_market.core.models import Grade, Kind, Lot, Message, Offer, Segment, Side, Tier, Want
 from fleek_market.core.private import BuyerLimits, SellerLimits
-from fleek_market.agents.ralph import Ralph, report
+from fleek_market.agents.ralph import Ralph, debrief, report
 from fleek_market.agents.tommy import Tommy
 from fleek_market.cli import run_market
 from fleek_market.data.generate import generate
-from fleek_market.negotiation.protocol import Status, negotiate
+from fleek_market.negotiation.protocol import Result, Status, negotiate
 
 LOT = Lot("S1-L1", "S1", "denim", Grade.B, 250, 5.00, (Tier(100, 0.05), Tier(250, 0.10)))
 WANT = Want("B1", Segment.PRO, "denim", frozenset({Grade.B}), 250, 250)
@@ -58,3 +58,22 @@ def test_stock_is_never_oversold():
             sold[o.deal.lot_id] = sold.get(o.deal.lot_id, 0) + o.deal.offer.quantity
     pieces = {lot.lot_id: lot.pieces for lot in m.lots}
     assert all(sold[k] <= pieces[k] for k in sold)
+
+
+def no_deal_with_best_counter(price):
+    transcript = (Message(1, Side.BUYER, Kind.OFFER, Offer(3.00, 250)),
+                  Message(1, Side.SELLER, Kind.OFFER, Offer(price, 250)))
+    return [(LOT, Result(Status.TIMEOUT, transcript))]
+
+
+def test_near_miss_when_best_counter_is_within_threshold_of_max():
+    bmax = 4.00  # 5% threshold -> anything up to £4.20 is a near miss
+    near = debrief(WANT, None, no_deal_with_best_counter(4.19), BuyerLimits(bmax))
+    far = debrief(WANT, None, no_deal_with_best_counter(4.30), BuyerLimits(bmax))
+    assert near.near_miss and report(near).startswith("Near miss")
+    assert not far.near_miss and report(far).startswith("No fit")
+
+
+def test_deals_are_never_near_misses():
+    m = generate()
+    assert not any(o.near_miss for o in run_market(m) if o.deal)

@@ -77,6 +77,9 @@ class Config:
 
     # --- marketplace
     commission_rate: float = 0.15  # Fleek's take on GMV
+    # a no-deal whose best counter is within this of the buyer's own max is a
+    # near miss, flagged for an account-manager intro rather than written off
+    near_miss_pct: float = 0.05
 
 
 CONFIG = Config()

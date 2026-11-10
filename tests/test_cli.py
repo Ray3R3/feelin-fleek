@@ -14,6 +14,7 @@ def test_summary_adds_up():
     assert s.gmv == round(sum(d.offer.total for d in deals), 2)
     assert s.fleek_take == round(s.gmv * CONFIG.commission_rate, 2)
     assert sum(c for c, _ in s.closed_by_segment.values()) == s.closed
+    assert s.near_misses == sum(o.near_miss for o in outcomes)
     # every deal sits inside both limits, so neither side can lose surplus
     assert s.buyer_surplus >= 0 and s.seller_surplus >= 0
 

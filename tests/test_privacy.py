@@ -124,3 +124,13 @@ def test_reports_quote_only_offered_prices(runs):
             assert not (secrets - offered) & amounts, text
             checked += 1
     assert checked == sum(len(m.wants) for _, _, m in runs)
+
+
+def test_near_miss_label_never_reaches_a_seller(runs):
+    # The label is computed from the buyer's max, so it goes to the buyer only.
+    assert any(o.near_miss for _, outcomes, _ in runs for o in outcomes)
+    for agents, _, _ in runs:
+        for a in agents:
+            for msg in a.sent:
+                text = msg.text.lower()
+                assert "near miss" not in text and "no fit" not in text
