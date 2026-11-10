@@ -59,11 +59,11 @@ def attack_errors(cfg0):
 
 def test_without_noise_the_attacker_nearly_recovers_the_max():
     # Shows the attacker is competent: only the private margin stands in its way.
-    errors = attack_errors(replace(CONFIG, concession_jitter=0.0))
+    errors = attack_errors(replace(CONFIG, concession_jitter=0.0, horizon_spread=0.0))
     assert statistics.median(errors) < 0.012  # measured 1.02%
 
 
 def test_with_noise_the_estimate_is_much_rougher():
     errors = attack_errors(CONFIG)
-    assert statistics.median(errors) > 0.014  # measured 1.61%, vs 1.02% without noise
-    assert statistics.quantiles(errors, n=10)[8] > 0.05  # p90: measured 6.50%, vs 1.92%
+    assert statistics.median(errors) > 0.016  # measured 1.79%, vs 1.02% without noise
+    assert statistics.quantiles(errors, n=10)[8] > 0.07  # p90: measured 9.20%, vs 1.92%

@@ -77,6 +77,8 @@ class Config:
     # A smooth formula is solvable: three offers give away the curve and the
     # target. So each round's concession is nudged by up to this much, privately
     concession_jitter: float = 0.30
+    # and each agent privately reaches its target up to this many rounds early
+    horizon_spread: float = 1.0
 
     # --- marketplace
     commission_rate: float = 0.15  # Fleek's take on GMV

@@ -6,10 +6,10 @@ move is a lookup:
 
     price at round t = opening + (target - opening) * progress ** curve
 
-where progress runs 0 -> 1 from the first round to the agent's deadline.
-curve > 1 holds firm and caves late; curve < 1 gives ground early. Each step
-is nudged by private noise, so the other side can't solve the formula from a
-few offers.
+where progress runs 0 -> 1 from the first round to the round the agent
+privately plans to reach its target, at most its deadline. curve > 1 holds
+firm and caves late; curve < 1 gives ground early. Each step is nudged by
+private noise, so the other side can't solve the formula from a few offers.
 
 Strategy proposes; guardrails.py still checks every message on the way out.
 """
@@ -61,21 +61,25 @@ class Plan:
         return Message(rnd, self.side, Kind.OFFER, Offer(self.price_at(rnd), quantity))
 
 
-def smooth_path(deadline: int, curve: float) -> tuple[float, ...]:
-    """progress ** curve for each round: 0 on the opening, 1 at the deadline."""
-    if deadline <= 1:
-        return (1.0,)
-    return tuple(((t - 1) / (deadline - 1)) ** curve for t in range(1, deadline + 1))
+def smooth_path(deadline: int, curve: float, reach: float | None = None) -> tuple[float, ...]:
+    """progress ** curve for each round: 0 on the opening, 1 from round `reach`
+    (default: the deadline) onwards."""
+    reach = deadline if reach is None else reach
+    return tuple(1.0 if t >= reach else ((t - 1) / (reach - 1)) ** curve
+                 for t in range(1, deadline + 1))
 
 
 def draw_path(deadline: int, curve: float, rng: random.Random,
               cfg: Config = CONFIG) -> tuple[float, ...]:
-    """The smooth path with private noise. Never moves backwards, never passes
-    the target, and ends on it at the deadline, as before."""
+    """The smooth path with private noise: a private round to reach the target
+    by, and a nudge on each step. Never moves backwards, never passes the
+    target, and is on it by the deadline."""
+    reach = (rng.uniform(max(1.0, deadline - cfg.horizon_spread), deadline)
+             if cfg.horizon_spread > 0 else deadline)
     path, prev = [], 0.0
-    for t, base in enumerate(smooth_path(deadline, curve), start=1):
+    for t, base in enumerate(smooth_path(deadline, curve, reach), start=1):
         nudged = base * rng.uniform(1 - cfg.concession_jitter, 1 + cfg.concession_jitter)
-        step = 1.0 if t == deadline else min(1.0, max(prev, nudged))
+        step = 1.0 if t == deadline or base >= 1.0 else min(1.0, max(prev, nudged))
         path.append(step)
         prev = step
     return tuple(path)
