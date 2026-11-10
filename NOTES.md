@@ -193,7 +193,7 @@ flowchart LR
 | GMV / Fleek's 15% take | £30,816 / £4,622 | |
 | Deals outside either limit | 0 | 0 |
 
-* 73 tests run in under 3 seconds, including 500+ closed deals checked against both limits, a privacy sweep over 20,000+ messages, and an attack on Ralph's offers.
+* 73 tests run in a few seconds, including 500+ closed deals checked against both limits, a privacy sweep over 20,000+ messages, and an attack on Ralph's offers.
 
 ### Trade-offs
 
