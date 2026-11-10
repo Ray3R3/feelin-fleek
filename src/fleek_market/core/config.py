@@ -57,7 +57,7 @@ class Config:
     segments: dict[Segment, SegmentProfile] = field(
         default_factory=lambda: {
             Segment.HOBBYIST: SegmentProfile((50, 100), (0.70, 0.95), 0.15, 4, 0.8),
-            Segment.PRO: SegmentProfile((250, 500), (0.62, 0.85), 0.25, 6, 1.6),
+            Segment.PRO: SegmentProfile((250, 500), (0.72, 0.92), 0.25, 6, 1.6),
         }
     )
 
