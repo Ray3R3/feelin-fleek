@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 from typing import Callable
@@ -92,17 +93,32 @@ class Voice:
         self.llm, self.cfg, self.on = llm, cfg, on
 
     def word(self, msg: Message, lot: Lot) -> Message:
-        fallback = template(msg, lot)
-        if not self.on:
-            return replace(msg, text=fallback)
-        try:
-            text = self.llm(prompt_for(msg, lot), self.cfg)
-        except Exception as exc:  # timeout, auth, network: none of it should stop the demo
+        return self.word_all([msg], lot)[0]
+
+    def word_all(self, msgs: list[Message], lot: Lot) -> list[Message]:
+        """Word a whole transcript. Calls run concurrently; results keep their order."""
+        if not self.on or not msgs:
+            return [replace(m, text=template(m, lot)) for m in msgs]
+        with ThreadPoolExecutor(max_workers=len(msgs)) as pool:
+            replies = list(pool.map(lambda m: self._ask(m, lot), msgs))
+        failed = next((r for r in replies if isinstance(r, Exception)), None)
+        if failed is not None:  # timeout, auth, network: none of it should stop the demo
             self.on = False
-            print(f"(voice off: {type(exc).__name__}, using plain wording)")
-            return replace(msg, text=fallback)
-        ok = text and len(text) <= 200 and numbers_in(text) <= public_numbers(msg, lot)
-        return replace(msg, text=text if ok else fallback)
+            print(f"(voice off: {type(failed).__name__}, using plain wording)")
+        return [replace(m, text=self._checked(r, m, lot)) for m, r in zip(msgs, replies)]
+
+    def _ask(self, msg: Message, lot: Lot) -> str | Exception:
+        try:
+            return self.llm(prompt_for(msg, lot), self.cfg)
+        except Exception as exc:
+            return exc
+
+    @staticmethod
+    def _checked(reply: str | Exception, msg: Message, lot: Lot) -> str:
+        """The LLM's text if every number in it is public for this move, else the template."""
+        ok = (isinstance(reply, str) and reply and len(reply) <= 200
+              and numbers_in(reply) <= public_numbers(msg, lot))
+        return reply if ok else template(msg, lot)
 
 
 def make_voice(requested: bool, cfg: Config = CONFIG, llm: LLM = call_llm) -> Voice | None:

@@ -97,9 +97,10 @@ def print_transcript(outcome: Outcome, lot: Lot, voice: Voice | None = None) -> 
     print(f"\nOne negotiation: {d.buyer_id} ({w.segment.value}) and {d.seller_id}, "
           f"{d.offer.quantity} {lot.category} grade {lot.grade.value}, "
           f"list £{lot.list_price:.2f}/pc")
-    for m in d.transcript:
-        if voice is not None:
-            m = voice.word(m, lot)  # wording only; the move is already decided
+    msgs = list(d.transcript)
+    if voice is not None:
+        msgs = voice.word_all(msgs, lot)  # wording only; the moves are already decided
+    for m in msgs:
         who = "Ralph" if m.sender is Side.BUYER else "Tommy"
         if m.kind is Kind.OFFER:
             line = f"offers £{m.offer.price:.2f}/pc"

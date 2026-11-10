@@ -1,5 +1,7 @@
 """The voice layer, with fake LLMs only. No real API calls."""
 import ast
+import random
+import time
 from pathlib import Path
 
 from fleek_market.agents import voice as voice_mod
@@ -95,3 +97,35 @@ def test_env_file_is_read_without_overriding_the_shell(tmp_path, monkeypatch):
     import os
     assert os.environ["FLEEK_A"] == "from-file" and os.environ["FLEEK_B"] == "from-shell"
     monkeypatch.delenv("FLEEK_A")
+
+
+def transcript_of(n):
+    return [Message(r, Side.SELLER, Kind.OFFER, Offer(round(5 - r / 10, 2), 250))
+            for r in range(1, n + 1)]
+
+
+def test_calls_run_concurrently_and_keep_order():
+    def slow(prompt, cfg):
+        time.sleep(0.2 + random.random() * 0.1)  # finish out of order
+        return prompt.split("offer ")[1].split(" per")[0] + " a piece, 250 pieces."
+
+    msgs = transcript_of(12)
+    start = time.perf_counter()
+    out = Voice(slow).word_all(msgs, LOT)
+    assert time.perf_counter() - start < 1.5  # 12 x 0.2s+ one at a time would be 2.4s+
+    assert [m.offer for m in out] == [m.offer for m in msgs]
+    assert [m.text.split(" ")[0] for m in out] == [f"£{m.offer.price:.2f}" for m in msgs]
+
+
+def test_some_calls_failing_prints_once_and_falls_back(capsys):
+    def flaky(prompt, cfg):
+        if "4.70" in prompt or "4.50" in prompt:
+            raise TimeoutError
+        return "fine words"  # no numbers, so it passes the check
+
+    msgs = transcript_of(6)
+    out = Voice(flaky).word_all(msgs, LOT)
+    for m, o in zip(msgs, out):
+        failed = f"{m.offer.price:.2f}" in ("4.70", "4.50")
+        assert o.text == (template(m, LOT) if failed else "fine words")
+    assert capsys.readouterr().out.count("voice off") == 1
