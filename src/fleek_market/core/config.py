@@ -81,5 +81,9 @@ class Config:
     # near miss, flagged for an account-manager intro rather than written off
     near_miss_pct: float = 0.05
 
+    # --- optional voice layer (make demo-voice)
+    voice_model: str = "gpt-4.1-mini"  # small and fast; it only words one sentence
+    voice_timeout: float = 5.0  # seconds per call before falling back to the template
+
 
 CONFIG = Config()

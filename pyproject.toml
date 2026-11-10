@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-voice = ["anthropic"]
+voice = ["openai"]
 dev = ["pytest"]
 
 [tool.pytest.ini_options]

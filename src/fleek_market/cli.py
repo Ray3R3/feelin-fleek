@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 
 from .agents.ralph import Outcome, Ralph, debrief, report
 from .agents.tommy import Tommy
+from .agents.voice import Voice, make_voice
 from .core.config import CONFIG, Config
 from .core.models import Deal, Kind, Lot, Side
 from .data.generate import Market, generate
@@ -91,12 +92,14 @@ def summarise(market: Market, outcomes: list[Outcome], cfg: Config = CONFIG) -> 
     )
 
 
-def print_transcript(outcome: Outcome, lot: Lot) -> None:
+def print_transcript(outcome: Outcome, lot: Lot, voice: Voice | None = None) -> None:
     d, w = outcome.deal, outcome.want
     print(f"\nOne negotiation: {d.buyer_id} ({w.segment.value}) and {d.seller_id}, "
           f"{d.offer.quantity} {lot.category} grade {lot.grade.value}, "
           f"list £{lot.list_price:.2f}/pc")
     for m in d.transcript:
+        if voice is not None:
+            m = voice.word(m, lot)  # wording only; the move is already decided
         who = "Ralph" if m.sender is Side.BUYER else "Tommy"
         if m.kind is Kind.OFFER:
             line = f"offers £{m.offer.price:.2f}/pc"
@@ -151,6 +154,8 @@ def main(argv: list[str] | None = None) -> None:
     args = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     args.add_argument("--seed", type=int, help="market seed (default from config)")
     args.add_argument("--all", action="store_true", help="list every order and miss")
+    args.add_argument("--voice", action="store_true",
+                      help="word the featured transcript with an LLM (needs OPENAI_API_KEY)")
     opts = args.parse_args(argv)
     cfg = CONFIG if opts.seed is None else replace(CONFIG, seed=opts.seed)
     limit = None if opts.all else 10
@@ -183,7 +188,7 @@ def main(argv: list[str] | None = None) -> None:
     if closed:
         # the longest haggle makes the most readable example
         longest = max(closed, key=lambda o: o.deal.rounds)
-        print_transcript(longest, lots[longest.deal.lot_id])
+        print_transcript(longest, lots[longest.deal.lot_id], make_voice(opts.voice, cfg))
     print_checkout([o.deal for o in closed], lots, limit)
     print_misses([o for o in outcomes if not o.deal], limit and 5)
     print_summary(summarise(market, outcomes, cfg), cfg)
