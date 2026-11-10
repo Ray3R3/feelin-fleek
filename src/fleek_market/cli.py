@@ -159,9 +159,10 @@ def main(argv: list[str] | None = None) -> None:
     segments = Counter(w.segment.value for w in market.wants)
     grades = Counter(lot.grade.value for lot in market.lots)
     print(f"Market (seed {cfg.seed})")
-    print(f"  sellers {len(market.seller_ids)}, lots {len(market.lots)}, "
-          f"grades {dict(sorted(grades.items()))}")
-    print(f"  buyers  {len(market.wants)}, segments {dict(segments.most_common())}")
+    print(f"  sellers {len(market.seller_ids)}, lots {len(market.lots)}: "
+          + " · ".join(f"{g} {n}" for g, n in sorted(grades.items())))
+    print(f"  buyers  {len(market.wants)}: "
+          + " · ".join(f"{seg} {n}" for seg, n in segments.most_common()))
 
     # matching sees public data only
     lists = shortlist(market.wants, market.lots, cfg)
