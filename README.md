@@ -1,10 +1,10 @@
 # Ralph & Tommy
 
-Buyer agents (Ralph) and seller agents (Tommy) negotiate bulk lots of secondhand clothing for Fleek. Neither agent can ever reveal or cross its owner's private price.
+Buyer agents (Ralph) and seller agents (Tommy) negotiate bulk lots of secondhand clothing. Neither agent can ever reveal or cross its owner's private price.
 
 A buyer tells Ralph what they want and the most they'll pay. Ralph haggles with the Tommys of the three best-matched sellers and comes back with a checkout, the best price he could get, or a near miss flagged for an account manager.
 
-Scaled down from Fleek's ~50,000 buyers and ~1,000 sellers to 100 and 20. The design is the same at full size (see [NOTES](NOTES.md#scale)).
+Scaled down from ~50,000 buyers and ~1,000 sellers to 100 and 20. The design is the same at full size (see [NOTES](NOTES.md#scale)).
 
 ## Quick start
 
