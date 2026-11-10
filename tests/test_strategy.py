@@ -103,3 +103,11 @@ def test_final_offer_doesnt_reveal_the_limit_by_a_fixed_ratio():
     ratios = {round(buyer_plan(LOT, 100, HOBBY, BuyerLimits(9.00), rng=rng(s)).target / 9.00, 3)
               for s in range(50)}
     assert len(ratios) > 10
+
+
+def test_noisy_path_opens_at_zero_never_goes_back_and_ends_on_target():
+    for seed in range(500):
+        for deadline, curve in ((4, 0.8), (6, 1.6), (6, 1.5)):
+            p = strategy.draw_path(deadline, curve, rng(seed))
+            assert p[0] == 0.0 and p[-1] == 1.0 and len(p) == deadline
+            assert all(a <= b <= 1.0 for a, b in zip(p, p[1:]))

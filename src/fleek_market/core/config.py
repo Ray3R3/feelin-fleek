@@ -74,6 +74,9 @@ class Config:
     # own margin privately; a fixed one would let anyone back out the limit
     # from a final offer
     limit_margin: tuple[float, float] = (0.02, 0.06)
+    # A smooth formula is solvable: three offers give away the curve and the
+    # target. So each round's concession is nudged by up to this much, privately
+    concession_jitter: float = 0.30
 
     # --- marketplace
     commission_rate: float = 0.15  # Fleek's take on GMV
